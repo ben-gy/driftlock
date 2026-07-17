@@ -182,6 +182,28 @@ export function createSession(cfg: SessionConfig): Session {
     sendDo?.({ mv, expect, seat });
   }
 
+  /**
+   * Hand any seat whose player is no longer in the room to a bot, so the round
+   * stays playable and can still reach a real game over. Host-only and
+   * idempotent — safe to call on a peer leaving AND on being promoted, which is
+   * exactly what the net.ts call order (onPeerLeave then onHostChange) requires.
+   */
+  function reconcileSeats(): void {
+    if (!host || dead) return;
+    const live = new Set([net?.selfId, ...(net?.peers() ?? [])]);
+    let changed = false;
+    players.forEach((p, i) => {
+      if (p.bot || live.has(p.id)) return;
+      p.bot = 'normal';
+      changed = true;
+      cfg.onSeatVacated?.(i, p.name);
+    });
+    if (changed) {
+      sendSnap?.(snapOf());
+      cfg.onChange(s);
+    }
+  }
+
   function botStep(): void {
     if (!host || dead || s.finished) return;
     const p = players[s.turn];
@@ -235,6 +257,16 @@ export function createSession(cfg: SessionConfig): Session {
         // the source. Whatever we last heard IS the position — there is nobody
         // left to correct us — so re-broadcast it to settle the room, then
         // resume the host-only cadence (bots, keepalive).
+        //
+        // Reconcile seats HERE, not only in onPeerLeave. net.ts fires
+        // onPeerLeave BEFORE onHostChange, so when the host drops, our
+        // onPeerLeave ran while we were still a guest and bailed on the `!host`
+        // guard — the departed host's seat was never handed to a bot. Without
+        // this line the promoted peer sits forever on "waiting for <the host who
+        // left>", which is the exact freeze the host-transfer gate exists to
+        // prevent. The two-tab smoke test caught it; a unit test that called
+        // setHost before onPeerLeave (the wrong order) did not.
+        reconcileSeats();
         sendSnap?.(snapOf());
         startHostTimers();
       } else stopHostTimers();
@@ -242,17 +274,7 @@ export function createSession(cfg: SessionConfig): Session {
 
     onPeerLeave() {
       if (!host || dead) return;
-      // Hand the empty seat to a bot rather than freezing or abandoning the
-      // round. The survivor keeps playing and can still reach a real game over,
-      // which is the whole point of the host-transfer gate.
-      const live = new Set([net?.selfId, ...(net?.peers() ?? [])]);
-      players.forEach((p, i) => {
-        if (p.bot || live.has(p.id)) return;
-        p.bot = 'normal';
-        cfg.onSeatVacated?.(i, p.name);
-      });
-      sendSnap?.(snapOf());
-      cfg.onChange(s);
+      reconcileSeats();
     },
 
     destroy() {

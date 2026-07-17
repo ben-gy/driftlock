@@ -140,8 +140,12 @@ describe('host transfer', () => {
 
     bus.kill('A');
     bus.promote('B');
-    clientSess.setHost(true); // what net.ts's onHostChange does for us
+    // THE REAL ORDER net.ts fires these in: onPeerLeave FIRST (while we are still
+    // a guest), THEN onHostChange. A test that called setHost first would hide
+    // the bug where the vacated seat never gets a bot — which is exactly what
+    // shipped past the unit test and was caught by the two-tab smoke test.
     clientSess.onPeerLeave();
+    clientSess.setHost(true);
 
     expect(clientSess.isHost()).toBe(true);
     // Seat 0 is empty, so it goes to a bot — the round stays playable.
@@ -156,6 +160,21 @@ describe('host transfer', () => {
     }
     expect(clientSess.state().finished).toBe(true);
     expect(clientSess.state().turnNo).toBeGreaterThan(1);
+  });
+
+  it('reconciles the vacated seat when promoted AFTER the leave (the real order)', () => {
+    // Pinned separately because the bug was purely one of ordering. net.ts calls
+    // onPeerLeave before onHostChange; if reconcileSeats only ran from
+    // onPeerLeave (guarded on `!host`) the departed seat would never get a bot,
+    // and the promoted peer would wait on it forever.
+    hostSess.move(firstLegal(hostSess.state()));
+    bus.kill('A');
+    bus.promote('B');
+
+    clientSess.onPeerLeave(); // fires while B is still a guest — must be a no-op…
+    expect(clientSess.players()[0].bot).toBeUndefined();
+    clientSess.setHost(true); // …and promotion is what must reconcile the seat
+    expect(clientSess.players()[0].bot).toBe('normal');
   });
 
   it('a promoted peer adopts its last snapshot as canonical, not a fresh board', () => {

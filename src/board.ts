@@ -183,6 +183,22 @@ export function createBoard(
     return false;
   }
 
+  /** Reflow on the next task, unconditionally. render() runs synchronously right
+   *  after the grid's innerHTML is set, before the browser has laid it out, so the
+   *  first placeStone often measures 0 and parks every stone at the origin. A
+   *  ResizeObserver or rAF would catch it in a FOREGROUND tab — but both are
+   *  throttled or deferred while a tab is hidden, which is exactly the case that
+   *  bites (your friend starts the round while you're on another tab). setTimeout
+   *  still fires when hidden, so it is the one trigger that always lands. */
+  let reflowSoon: ReturnType<typeof setTimeout> | undefined;
+  function scheduleReflow(): void {
+    if (reflowSoon) return;
+    reflowSoon = setTimeout(() => {
+      reflowSoon = undefined;
+      reflow();
+    }, 0);
+  }
+
   function render(s: GameState): void {
     last = s;
     paintCells(s);
@@ -200,6 +216,9 @@ export function createBoard(
     }
     stones = next;
     paintLocks(s);
+    // If this render measured 0 (grid not laid out yet), lay the stones out once
+    // the browser has. Harmless when the synchronous placement already worked.
+    scheduleReflow();
   }
 
   async function animate(
@@ -316,6 +335,7 @@ export function createBoard(
     },
     destroy() {
       ro.disconnect();
+      if (reflowSoon) clearTimeout(reflowSoon);
       document.removeEventListener('visibilitychange', onVisible);
       root.innerHTML = '';
     },

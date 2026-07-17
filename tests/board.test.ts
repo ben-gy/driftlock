@@ -99,6 +99,23 @@ describe('a board rendered while the tab is hidden', () => {
     }
   });
 
+  it('lays them out via the deferred task even with NO observer and NO visibility event', async () => {
+    // The case the MCP preview pane exposed: a permanently-hidden tab never fires
+    // a visibilitychange and defers ResizeObserver callbacks, yet the grid has a
+    // real width. The setTimeout(0) reflow is the trigger that still lands. Here
+    // the observer is never fired and no event dispatched — only time passes.
+    width = 500;
+    const root = mount();
+    const view = createBoard(root, 5, { onShift: () => {}, onPreview: () => {} }, false);
+    // Force the 0-measure at render time, then restore before the deferred task.
+    width = 0;
+    view.render(generateBoard(1, MODES.duel));
+    expect(new Set(transforms(root)).size).toBe(1); // piled, synchronously
+    width = 500;
+    await new Promise((r) => setTimeout(r, 5));
+    expect(new Set(transforms(root)).size).toBe(MODES.duel.stones); // fixed by the timer
+  });
+
   it('re-places on visibilitychange too', () => {
     const root = mount();
     const view = createBoard(root, 5, { onShift: () => {}, onPreview: () => {} }, false);
