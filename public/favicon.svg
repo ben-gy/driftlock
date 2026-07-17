@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Driftlock">
+  <defs>
+    <radialGradient id="wellGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8a7cff" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#8a7cff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Board -->
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#0b1220" />
+
+  <!-- The Well: a violet cell at the centre, glowing. -->
+  <circle cx="36" cy="32" r="20" fill="url(#wellGlow)" />
+  <rect x="26" y="22" width="20" height="20" rx="5" fill="#8a7cff" />
+
+  <!-- Motion trail: the stone is sliding right, into the Well. -->
+  <rect x="3" y="30" width="9" height="4" rx="2" fill="#e8e6e3" opacity="0.28" />
+  <rect x="9" y="29.5" width="8" height="5" rx="2.5" fill="#e8e6e3" opacity="0.5" />
+
+  <!-- The stone, one step left of the Well. -->
+  <circle cx="18" cy="32" r="6.5" fill="#e8e6e3" />
+</svg>
