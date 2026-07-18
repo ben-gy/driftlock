@@ -191,3 +191,29 @@ describe('the [hidden] rule', () => {
     expect(readFileSync(path, 'utf8')).toMatch(hiddenRule);
   });
 });
+
+describe('the board fits ANY board size — the Deepwell overflow guard', () => {
+  // Shipped bug: Deepwell (9x9) overflowed the phone, pushing the rightmost
+  // columns and every row handle off-screen and unreachable, while the column
+  // handles overlapped into a mis-tap lottery. jsdom has no layout engine so it
+  // cannot see the overflow itself — but the two CSS invariants that prevent it
+  // are pinnable, and reverting either is what caused it. See the note in
+  // main.css's .bd-grid. The real safety net is the routine now VISUALLY testing
+  // every mode (5x5 AND 9x9); this keeps a careless edit from re-arming it.
+  const css = readFileSync('src/styles/main.css', 'utf8');
+
+  it('sizes cell tracks with minmax(0, 1fr) so a 9x9 can shrink to fit', () => {
+    // A bare `1fr` is minmax(auto, 1fr): the 40px handles living in each track
+    // floor every column at ~40px, so 9 columns cannot fit a 250px grid.
+    expect(css).toMatch(/grid-template-columns:\s*repeat\(var\(--n\),\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/grid-template-rows:\s*repeat\(var\(--n\),\s*minmax\(0,\s*1fr\)\)/);
+    expect(css, 'a bare 1fr re-arms the Deepwell overflow').not.toMatch(
+      /repeat\(var\(--n\),\s*1fr\)\s*0\s*0/,
+    );
+  });
+
+  it('caps each handle to its cell so N handles never overlap on a dense board', () => {
+    expect(css).toMatch(/\.h-top,\s*\.h-bottom\s*\{[^}]*width:\s*min\(var\(--h\),\s*100%\)/);
+    expect(css).toMatch(/\.h-left,\s*\.h-right\s*\{[^}]*height:\s*min\(var\(--h\),\s*100%\)/);
+  });
+});

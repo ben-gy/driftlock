@@ -292,9 +292,18 @@ body.playing .site-footer {
   width: 100%;
   aspect-ratio: 1;
   display: grid;
-  /* n square cell tracks + the two collapsed handle tracks. See the note above. */
-  grid-template-columns: repeat(var(--n), 1fr) 0 0;
-  grid-template-rows: repeat(var(--n), 1fr) 0 0;
+  /* n square cell tracks + the two collapsed handle tracks. See the note above.
+   *
+   * minmax(0, 1fr), NOT a bare `1fr`: a bare `1fr` is `minmax(auto, 1fr)`, and
+   * `auto` floors each track at its content's MIN-CONTENT width. The column shift
+   * handles (40px) live IN these tracks, so every column was floored at ~40px. On
+   * a 5x5 that fits (5*40 < the 250px grid); on a 9x9 (Deepwell) the columns could
+   * not shrink, so 9*40 overflowed the grid and the rightmost columns — and the
+   * row handles — were pushed off the screen and made unreachable. minmax(0,1fr)
+   * lets the tracks shrink to an equal n-way split so any board size fits, and it
+   * keeps `grid.clientWidth / n` (the stone step in board.ts) exactly true. */
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr)) 0 0;
+  grid-template-rows: repeat(var(--n), minmax(0, 1fr)) 0 0;
   gap: 0;
 }
 
@@ -524,6 +533,11 @@ body.playing .site-footer {
 .h-right {
   justify-self: start;
   align-self: center;
+  /* Never taller than the ROW it serves: on a 9x9 the rows are ~28px, and a fixed
+   * 40px handle would overlap its neighbours (12px each) and make row shifts a
+   * mis-tap lottery. min() keeps the roomy 40px on the small boards (rows > 40px)
+   * and shrinks to the cell on Deepwell. 100% resolves to the grid track height. */
+  height: min(var(--h), 100%);
 }
 
 /* h-right = ← (shift left): the left/inner button of the pair. */
@@ -540,6 +554,10 @@ body.playing .site-footer {
 .h-bottom {
   justify-self: center;
   align-self: start;
+  /* Same as the row handles, on the other axis: never wider than the COLUMN, so
+   * the 9 column handles on a 9x9 stop overlapping. 100% resolves to the track
+   * (cell) width; small boards keep the full 40px. */
+  width: min(var(--h), 100%);
 }
 
 /* h-bottom = ↑ (shift up): the top/inner button of the pair. */
