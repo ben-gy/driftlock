@@ -13,6 +13,7 @@
  */
 
 import { isWell, tideRadius, type GameState, type Move, type Pos } from './game';
+import { makeDraggable, type Draggable } from './engine/drag';
 
 export interface BoardCallbacks {
   /** A handle was activated. The screen decides whether it is legal/our turn. */
@@ -102,6 +103,88 @@ export function createBoard(
     mkHandle({ axis: 'col', index: i, dir: 1 }, 'h-top', `Shift column ${i + 1} down`, `${size + 1} / ${i + 1}`);
     mkHandle({ axis: 'col', index: i, dir: -1 }, 'h-bottom', `Shift column ${i + 1} up`, `${size + 2} / ${i + 1}`);
   }
+
+  // ── drag to shift ───────────────────────────────────────────────────────────
+  // The edge handles are the discrete control; this is the direct one. Drag a row
+  // left/right (or a column up/down) and it shifts one step in that direction —
+  // the same Move an edge handle makes, previewed live as the finger moves and
+  // committed past a third of a cell. A transparent surface over the cell area
+  // owns the gesture; the handles keep their taps (they sit outside it).
+  const dragSurface = document.createElement('div');
+  dragSurface.className = 'bd-dragsurface';
+  grid.appendChild(dragSurface);
+
+  let dragCell: Pos | null = null;
+  let dragAxis: 'row' | 'col' | null = null;
+  let dragMv: Move | null = null;
+
+  /** Which cell a client point sits over, or null if outside the board. */
+  function cellAt(clientX: number, clientY: number): Pos | null {
+    const rect = grid.getBoundingClientRect();
+    const step = rect.width / size;
+    if (!(step > 0)) return null;
+    const c = Math.floor((clientX - rect.left) / step);
+    const r = Math.floor((clientY - rect.top) / step);
+    if (r < 0 || r >= size || c < 0 || c >= size) return null;
+    return { r, c };
+  }
+
+  /** A line is draggable if it holds a stone and is not the locked line. */
+  function isLegalMove(mv: Move): boolean {
+    if (!last) return false;
+    if (last.locked && last.locked.axis === mv.axis && last.locked.index === mv.index) return false;
+    return lineHasStone(last, mv.axis, mv.index);
+  }
+
+  function resetDrag(): void {
+    dragCell = null;
+    dragAxis = null;
+    dragMv = null;
+  }
+
+  const drag: Draggable = makeDraggable(dragSurface, {
+    onDragStart: resetDrag,
+    onDragMove: (dx, dy, e) => {
+      if (!interactive) return;
+      // The grab cell is fixed at the start point, recovered from the delta.
+      if (!dragCell) {
+        dragCell = cellAt(e.clientX - dx, e.clientY - dy);
+        if (!dragCell) return;
+      }
+      // Lock the axis once the intent is clear, so a diagonal wobble doesn't flip
+      // the previewed line back and forth.
+      if (!dragAxis) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        dragAxis = Math.abs(dx) >= Math.abs(dy) ? 'row' : 'col';
+      }
+      const axis = dragAxis;
+      const cell = dragCell;
+      if (!axis || !cell) return;
+      const dir: 1 | -1 = axis === 'row' ? (dx >= 0 ? 1 : -1) : dy >= 0 ? 1 : -1;
+      const index = axis === 'row' ? cell.r : cell.c;
+      const mv: Move = { axis, index, dir };
+      if (isLegalMove(mv)) {
+        dragMv = mv;
+        cb.onPreview(mv);
+      } else {
+        dragMv = null;
+        cb.onPreview(null);
+      }
+    },
+    onDrop: (dx, dy) => {
+      const mv = dragMv;
+      const step = cellRect();
+      const along = dragAxis === 'row' ? Math.abs(dx) : Math.abs(dy);
+      cb.onPreview(null);
+      resetDrag();
+      // Commit only past a third of a cell — a small tug reads as "not yet".
+      if (mv && interactive && step > 0 && along > step / 3) cb.onShift(mv);
+    },
+    onCancel: () => {
+      cb.onPreview(null);
+      resetDrag();
+    },
+  });
 
   function cellRect(): number {
     // One cell step in px, measured live so it survives any resize. Guarded
@@ -334,6 +417,7 @@ export function createBoard(
       if (last) paintLocks(last);
     },
     destroy() {
+      drag.destroy();
       ro.disconnect();
       if (reflowSoon) clearTimeout(reflowSoon);
       document.removeEventListener('visibilitychange', onVisible);

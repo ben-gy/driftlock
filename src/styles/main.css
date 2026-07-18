@@ -126,6 +126,13 @@ p {
   color: var(--muted);
 }
 
+/* Mid-round, the "more games" backlink is noise and eats a strip of the board on
+   a phone. main.ts adds `playing` to <body> while a round is live and removes it
+   on every other screen; the footer shows everywhere except in the game. */
+body.playing .site-footer {
+  display: none !important;
+}
+
 .site-footer a {
   color: var(--muted);
   text-decoration: none;
@@ -346,6 +353,28 @@ p {
   pointer-events: none;
 }
 
+/* A transparent surface over exactly the cell area, so a row/column can be
+   DRAGGED to shift it (drag left/right on a row, up/down on a column) — the same
+   move the edge handles make, but directly on the piece. It spans the n cell
+   tracks only, so the edge handles (which live in the padding outside the grid)
+   keep their taps. touch-action:none or the page scrolls instead of shifting. */
+.bd-dragsurface {
+  position: relative;
+  grid-area: 1 / 1 / span var(--n) / span var(--n);
+  z-index: 3;
+  touch-action: none;
+  cursor: grab;
+}
+
+.bd-dragsurface.is-idle {
+  pointer-events: none;
+  cursor: default;
+}
+
+.board.is-idle .bd-dragsurface {
+  pointer-events: none;
+}
+
 /* The element is a CELL BOX moved by transform; the visible stone is the inset
    circle in ::before. Keeping them separate means JS only ever writes a whole
    -cell translate and never has to know how big the stone is drawn. */
@@ -481,18 +510,29 @@ p {
 }
 
 /* Both trailing tracks collapse onto the same edge line, so each handle is
-   offset into its own slot. Inner slot = track n+1, outer slot = track n+2. */
+   placed into its own slot with left/top (grid position is irrelevant once the
+   tracks are zero-width — the offset here is what positions them).
+ *
+ * The pair must point OUTWARD like a stepper: the button on the LEFT of the pair
+ * moves the row LEFT (←), the button on the RIGHT moves it RIGHT (→) — so the
+ * arrows read `← →`, not the crossed `→ ←`. Since h-left carries dir +1 (→) and
+ * h-right dir -1 (←), the LEFTWARD handle (h-right) takes the inner slot and the
+ * RIGHTWARD handle (h-left) the outer one. Columns mirror it: the UP handle
+ * (h-bottom, dir -1, ↑) sits on top, the DOWN handle (h-top, dir +1, ↓) below,
+ * reading `↑ ↓`. Arrow-points-to-movement stays correct throughout. */
 .h-left,
 .h-right {
   justify-self: start;
   align-self: center;
 }
 
-.h-left {
+/* h-right = ← (shift left): the left/inner button of the pair. */
+.h-right {
   left: var(--s1);
 }
 
-.h-right {
+/* h-left = → (shift right): the right/outer button of the pair. */
+.h-left {
   left: calc(var(--h) + var(--hgap) + var(--s1));
 }
 
@@ -502,11 +542,13 @@ p {
   align-self: start;
 }
 
-.h-top {
+/* h-bottom = ↑ (shift up): the top/inner button of the pair. */
+.h-bottom {
   top: var(--s1);
 }
 
-.h-bottom {
+/* h-top = ↓ (shift down): the bottom/outer button of the pair. */
+.h-top {
   top: calc(var(--h) + var(--hgap) + var(--s1));
 }
 

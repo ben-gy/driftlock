@@ -147,6 +147,8 @@ window.addEventListener('beforeunload', () => {
 // ── screens ─────────────────────────────────────────────────────────────────
 
 function screen(html: string, cls = ''): HTMLElement {
+  // Every screen shows the footer EXCEPT a live round, which re-adds `playing`.
+  document.body.classList.remove('playing');
   app.innerHTML = `<main class="main-content ${cls}">${html}</main>${FOOTER}`;
   return app.querySelector('.main-content')!;
 }
@@ -430,6 +432,7 @@ function beginRound(args: RoundArgs): void {
      </div>`,
     'in-game',
   );
+  document.body.classList.add('playing'); // hide the footer while the round is live
 
   const msg = el.querySelector<HTMLElement>('#msg')!;
   const hud = el.querySelector<HTMLElement>('#hud')!;
