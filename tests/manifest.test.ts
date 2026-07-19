@@ -42,7 +42,7 @@ describe('manifest.webmanifest', () => {
   });
 
   it('ships 192, 512 and a MASKABLE 512 — Android crops the maskable one', () => {
-    const icons = manifest.icons as { src: string; sizes: string; purpose: string }[];
+    const icons = manifest.icons as { src: string; sizes: string; purpose: string; type: string }[];
     expect(icons).toHaveLength(3);
 
     const bySize = (sizes: string, purpose: string) =>
