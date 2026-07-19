@@ -22,12 +22,13 @@ mountFeedback();
 import './styles/mobile.css';
 import './styles/main.css';
 
-import { hardenViewport } from './engine/mobile';
-import { createSfx } from './engine/sound';
-import { createStore } from './engine/storage';
-import { resolveName } from './engine/identity';
-import { createNet, type Net } from './engine/net';
-import { createRounds, type Rounds, type RoundPlayer } from './engine/rematch';
+import { hardenViewport } from '@ben-gy/game-engine/mobile';
+import { createSfx } from '@ben-gy/game-engine/sound';
+import { createStore } from '@ben-gy/game-engine/storage';
+import { resolveName } from '@ben-gy/game-engine/identity';
+import { createNet, roomAppId, setTurnConfig, type Net } from '@ben-gy/game-engine/net';
+import { getTurnConfig } from '@ben-gy/game-engine/turn';
+import { createRounds, type Rounds, type RoundPlayer } from '@ben-gy/game-engine/rematch';
 import {
   clearRoomInUrl,
   createLobby,
@@ -35,7 +36,7 @@ import {
   mintCode,
   normalizeRoomCode,
   setRoomInUrl,
-} from './engine/lobby';
+} from '@ben-gy/game-engine/lobby';
 import { createBoard, type BoardView } from './board';
 import { createCountdown, type Countdown } from './countdown';
 import { createSession, type Session, type SessionPlayer } from './session';
@@ -43,7 +44,27 @@ import { stoneValue, tideRadius, type Difficulty, type GameState, type Move } fr
 import { DEFAULT_MODE, MODE_LIST, modeOf, type Mode, type ModeId } from './modes';
 
 const APP_ID = 'driftlock';
+/**
+ * The signaling namespace. NEVER the bare slug: roomAppId folds the engine's
+ * protocol revision in, so a player on a stale cached build lands in a room
+ * where they simply never see anyone rather than half-connecting and desyncing.
+ */
+const ROOM_APP_ID = roomAppId(APP_ID);
 const MAX_PLAYERS = 2;
+
+/**
+ * TURN credentials, fetched once at boot — not lazily on the join path.
+ *
+ * Trystero builds ONE global pool of peer connections from whichever joinRoom
+ * fires first on the page and draws every later room's outbound offers from it,
+ * so a config that arrives after the first mesh leaves the initiating half of
+ * every pair STUN-only — TURN working in one direction for about half of all
+ * pairs, which is far harder to diagnose than having none. Starting the fetch
+ * here and awaiting it before createNet means the first mesh already carries it.
+ * getTurnConfig never rejects (it fails open to STUN-only), so this can never
+ * block or break a join.
+ */
+const turnReady: Promise<void> = getTurnConfig().then(setTurnConfig);
 
 const app = document.getElementById('app')!;
 const store = createStore(APP_ID);
@@ -314,6 +335,9 @@ function showRoomEntry(): void {
 
 async function joinRoom(code: string, created: boolean): Promise<void> {
   await leaveRoom();
+  // The boot fetch is almost always already resolved by the time anyone taps a
+  // room; this only ever waits when a deep link opens straight into one.
+  await turnReady;
   roomCode = normalizeRoomCode(code) || mintCode();
   iMintedIt = created;
   setRoomInUrl(roomCode);
@@ -321,7 +345,7 @@ async function joinRoom(code: string, created: boolean): Promise<void> {
   net = createNet(
     // claimHost ONLY for the peer that minted the code. A guest that claims races
     // the incumbent for a room it holds none of the state for.
-    { appId: APP_ID, roomId: roomCode, claimHost: created },
+    { appId: ROOM_APP_ID, roomId: roomCode, claimHost: created },
     {
       onHostChange: (_id, isSelfHost) => session?.setHost(isSelfHost),
       onPeerLeave: () => session?.onPeerLeave(),

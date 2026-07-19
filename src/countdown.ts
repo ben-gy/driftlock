@@ -18,7 +18,7 @@
  * host-authoritative, so that skew costs nobody a move.
  */
 
-import type { Sfx } from './engine/sound';
+import type { Sfx } from '@ben-gy/game-engine/sound';
 
 export interface CountdownOptions {
   root: HTMLElement;

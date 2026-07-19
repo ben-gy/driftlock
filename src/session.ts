@@ -36,7 +36,7 @@ import {
   type Pos,
 } from './game';
 import type { Mode } from './modes';
-import type { Net, PeerId } from './engine/net';
+import type { Net, PeerId } from '@ben-gy/game-engine/net';
 
 export interface SessionPlayer {
   id: PeerId;

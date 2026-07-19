@@ -5,7 +5,7 @@
  * players silently land in different rooms.
  */
 import { describe, expect, it } from 'vitest';
-import { normalizeRoomCode } from '../src/engine/lobby';
+import { normalizeRoomCode } from '@ben-gy/game-engine/lobby';
 
 describe('normalizeRoomCode', () => {
   it('upper-cases so a typed code matches the host link', () => {

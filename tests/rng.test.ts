@@ -3,7 +3,7 @@
  * byte-identical streams and shuffles. If this fails, every client desyncs.
  */
 import { describe, expect, it } from 'vitest';
-import { makeRng, hashSeed, randInt, shuffle, pick } from '../src/engine/rng';
+import { makeRng, hashSeed, randInt, shuffle, pick } from '@ben-gy/game-engine/rng';
 
 describe('makeRng determinism (P2P sync invariant)', () => {
   it('produces an identical stream for the same numeric seed', () => {

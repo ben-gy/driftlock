@@ -13,7 +13,7 @@
  */
 
 import { isWell, tideRadius, type GameState, type Move, type Pos } from './game';
-import { makeDraggable, type Draggable } from './engine/drag';
+import { makeDraggable, type Draggable } from '@ben-gy/game-engine/drag';
 
 export interface BoardCallbacks {
   /** A handle was activated. The screen decides whether it is legal/our turn. */
