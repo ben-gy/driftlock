@@ -14,7 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCountdown } from '../src/countdown';
-import type { Sfx, SfxName } from '../src/engine/sound';
+import type { Sfx, SfxName } from '@ben-gy/game-engine/sound';
 
 /** A Sfx that records instead of touching the Web Audio API jsdom does not have. */
 function stubSfx(): Sfx & { played: SfxName[] } {

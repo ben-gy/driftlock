@@ -21,13 +21,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSession, type Session } from '../src/session';
 import { legalMoves, type GameState, type Move } from '../src/game';
 import { MODES } from '../src/modes';
-import type { Net, PeerId } from '../src/engine/net';
+import type { Net, PeerId } from '@ben-gy/game-engine/net';
 
 /** A two-peer bus. Delivers synchronously; good enough for authority tests. */
 function makeBus() {
   const peers = new Map<PeerId, Map<string, ((d: unknown, from: PeerId) => void)[]>>();
   let hostId: PeerId = 'A';
+  /**
+   * The host's TERM. The real net.ts only lets the room move to a peer that
+   * announces a higher one, which is what stops a peer that self-elected during
+   * a partition from taking a live room when the mesh heals. Modelled here so a
+   * promotion in this suite means the same thing it means on the wire.
+   */
+  let epoch = 1;
   const live = new Set<PeerId>(['A', 'B']);
+  const watchers = new Map<PeerId, Set<(peers: PeerId[]) => void>>();
+
+  function announceRoster(): void {
+    const roster = [...live].sort();
+    for (const [id, cbs] of watchers) {
+      if (!live.has(id)) continue;
+      for (const cb of [...cbs]) cb(roster);
+    }
+  }
 
   function netFor(selfId: PeerId): Net {
     peers.set(selfId, new Map());
@@ -59,6 +75,27 @@ function makeBus() {
         };
         return send;
       },
+      hostEpoch: () => epoch,
+      onPeersChange(cb) {
+        const set = watchers.get(selfId) ?? new Set();
+        watchers.set(selfId, set);
+        set.add(cb);
+        return () => set.delete(cb);
+      },
+      takeover() {
+        hostId = selfId;
+        epoch += 1;
+        announceRoster();
+      },
+      netDiag: () => ({
+        selfId,
+        host: hostId,
+        epoch,
+        settled: true,
+        peers: [...live].sort(),
+        relaySockets: {},
+        turn: false,
+      }),
       ping: async () => 1,
       leave: async () => {},
     };
@@ -69,9 +106,15 @@ function makeBus() {
     kill(id: PeerId) {
       live.delete(id);
       peers.delete(id);
+      watchers.delete(id);
+      announceRoster();
     },
     promote(id: PeerId) {
       hostId = id;
+      // A transfer always mints a new term — that is the whole point of epochs:
+      // the departed host's last announce can never out-rank its successor.
+      epoch += 1;
+      announceRoster();
     },
   };
 }

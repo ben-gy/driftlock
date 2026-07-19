@@ -16,7 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hardenViewport, type Unharden } from '../src/engine/mobile';
+import { hardenViewport, type Unharden } from '@ben-gy/game-engine/mobile';
 
 /** Fire a cancelable event and report whether something refused it. */
 function fire(target: EventTarget, type: string): boolean {

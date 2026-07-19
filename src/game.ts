@@ -25,7 +25,7 @@
  * a much better way to build a rule.
  */
 
-import { makeRng, shuffle, type Rng } from './engine/rng';
+import { makeRng, shuffle, type Rng } from '@ben-gy/game-engine/rng';
 
 export type Axis = 'row' | 'col';
 
