@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "You never move a stone — you move the row it stands on, and whatever slides into the Well is yours.",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
